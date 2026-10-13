@@ -1,0 +1,15 @@
+vendor/
+node_modules/
+.env
+.DS_Store
+thumbs.db
+*.log
+phpunit.xml
+.phpunit.result.cache
+
+# Certificados y archivos sensibles
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
