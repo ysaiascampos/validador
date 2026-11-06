@@ -159,8 +159,13 @@ return array(
     |--------------------------------------------------------------------------
     |
     | Define validation rules for environment variables. The required list is
-    | checked by default against the project's connection variables. Sensitive
-    | variables (PASSWORD, TOKEN, SECRET, KEY) are never validated or exposed.
+    | checked by default against the project's connection variables. Variables
+    | whose name contains PASSWORD, TOKEN, SECRET or KEY (DB_PASSWORD,
+    | API_TOKEN, RUNIFICADOR_REST_TOKEN_URL...) are protected: their value is
+    | never shown, but their presence is still validated. Their value-level
+    | rules are evaluated against the real value, but the value is masked as
+    | "***" in any message, so they never make validation fail just for being
+    | protected.
     |
     */
     'env' => array(

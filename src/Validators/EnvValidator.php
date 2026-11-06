@@ -37,6 +37,17 @@ class EnvValidator implements ValidatorInterface
     private $fileProvider;
 
     /**
+     * Sensitive variable names for the current validation run.
+     *
+     * Their values are never exposed and their presence is still validated.
+     * Value rules are evaluated against the real value, but the value is
+     * masked ("***") in any message.
+     *
+     * @var array
+     */
+    private $sensitive;
+
+    /**
      * Built-in default required variables, used when no config is provided.
      *
      * @var array
@@ -68,6 +79,7 @@ class EnvValidator implements ValidatorInterface
         $this->envProvider = $envProvider;
         $this->config = $this->applyDefaults($config);
         $this->status = array();
+        $this->sensitive = array();
         $this->fileProvider = $this->resolveFileProvider($config);
     }
 
@@ -133,11 +145,17 @@ class EnvValidator implements ValidatorInterface
         $startTime = microtime(true);
         $result = new ValidationResult($this->getName());
         $this->status = array();
+        $this->sensitive = array();
 
         try {
             $rules = $this->resolveRules($options);
             $rules = $this->applyEnvironmentRules($rules, $this->resolveEnvironment($options));
-            $rules = $this->rejectSensitiveVariables($result, $rules);
+            $this->sensitive = $this->findSensitiveVariables($rules);
+
+            if (!empty($this->sensitive)) {
+                // Only the names are reported: values are never exposed.
+                $result->addDetail('env_sensitive_variables', $this->sensitive);
+            }
 
             if ($this->isEmptyRules($rules)) {
                 $result->addWarning('No environment variables configured for validation.');
@@ -329,64 +347,8 @@ class EnvValidator implements ValidatorInterface
     }
 
     /**
-     * Reject variables whose name contains a sensitive keyword
-     * (PASSWORD, TOKEN, SECRET, KEY) and remove them from the rules.
-     *
-     * @param ValidationResult $result
-     * @param array $rules
-     * @return array
-     */
-    private function rejectSensitiveVariables(ValidationResult $result, array $rules)
-    {
-        $sensitive = $this->findSensitiveVariables($rules);
-
-        foreach ($sensitive as $varName) {
-            $result->addError(sprintf(
-                'Sensitive environment variable cannot be validated: %s',
-                $varName
-            ));
-        }
-
-        if (empty($sensitive)) {
-            return $rules;
-        }
-
-        $safeRules = $rules;
-
-        if (isset($safeRules['required']) && is_array($safeRules['required'])) {
-            $safeRules['required'] = array_values(array_filter(
-                $safeRules['required'],
-                function ($var) use ($sensitive) {
-                    $name = is_string($var) ? $var : (isset($var['name']) ? $var['name'] : null);
-                    return !in_array($name, $sensitive, true);
-                }
-            ));
-        }
-
-        if (isset($safeRules['optional']) && is_array($safeRules['optional'])) {
-            $safeRules['optional'] = array_values(array_filter(
-                $safeRules['optional'],
-                function ($var) use ($sensitive) {
-                    $name = is_string($var) ? $var : (isset($var['name']) ? $var['name'] : null);
-                    return !in_array($name, $sensitive, true);
-                }
-            ));
-        }
-
-        if (isset($safeRules['rules']) && is_array($safeRules['rules'])) {
-            foreach ($sensitive as $varName) {
-                if (isset($safeRules['rules'][$varName])) {
-                    unset($safeRules['rules'][$varName]);
-                }
-            }
-        }
-
-        return $safeRules;
-    }
-
-    /**
-     * Collect all variable names requested for validation that contain
-     * a sensitive keyword.
+     * Collect all variable names requested for validation that look
+     * sensitive, so their values are never read for reporting.
      *
      * @param array $rules
      * @return array
@@ -424,23 +386,69 @@ class EnvValidator implements ValidatorInterface
     }
 
     /**
-     * Determine whether a variable name contains a sensitive keyword.
+     * Determine whether a variable name refers to a secret value.
+     *
+     * Any name containing a sensitive token (PASSWORD, TOKEN, SECRET, KEY...) is
+     * treated as protected: its value is never shown in any message or detail,
+     * but its presence is still validated. This intentionally covers names such
+     * as *_TOKEN_URL or *_CACHE_KEY_PRE, whose values must not be exposed either.
      *
      * @param string $name
      * @return bool
      */
     private function isSensitiveVariable($name)
     {
-        $sensitiveWords = array('password', 'token', 'secret', 'key');
+        $name = (string) $name;
+
         $parts = preg_split('/[^a-zA-Z0-9]+/', $name);
+        $parts = array_values(array_filter(array_map('strtolower', (array) $parts), function ($part) {
+            return $part !== '';
+        }));
+
+        if (empty($parts)) {
+            return false;
+        }
+
+        $sensitiveWords = array(
+            'password',
+            'passwd',
+            'pwd',
+            'secret',
+            'token',
+            'key',
+            'apikey',
+            'privatekey',
+            'secretkey',
+            'credential',
+            'credentials',
+        );
 
         foreach ($parts as $part) {
-            if (in_array(strtolower($part), $sensitiveWords, true)) {
+            if (in_array($part, $sensitiveWords, true)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Value to include in a validation message.
+     *
+     * Protected variables never reveal their value: a mask is returned
+     * instead. The rule is still evaluated against the real value.
+     *
+     * @param string $varName
+     * @param mixed $value
+     * @return string
+     */
+    private function valueForMessage($varName, $value)
+    {
+        if ($this->isSensitiveVariable($varName)) {
+            return '***';
+        }
+
+        return is_scalar($value) ? (string) $value : gettype($value);
     }
 
     /**
@@ -547,6 +555,10 @@ class EnvValidator implements ValidatorInterface
 
             $value = $this->envProvider->get($varName);
             $this->markStatus($varName, 'ok');
+
+            // Rules are evaluated for every variable, including protected ones.
+            // For protected variables the real value is masked in the messages
+            // (see valueForMessage), but the rule itself is fully checked.
             $this->applyVariableRules($result, $varName, $value, $varRules);
         }
     }
@@ -606,6 +618,11 @@ class EnvValidator implements ValidatorInterface
         $names = $this->collectRuleNames($rules);
 
         foreach ($names as $name) {
+            if (in_array($name, $this->sensitive, true)) {
+                // Never compare or print the value of a secret.
+                continue;
+            }
+
             if (!$this->fileProvider->has($name)) {
                 continue;
             }
@@ -824,29 +841,42 @@ class EnvValidator implements ValidatorInterface
             $result->addError(sprintf(
                 'Environment variable %s equals "%s", expected "%s"',
                 $varName,
-                $value,
-                $expected
+                $this->valueForMessage($varName, $value),
+                $this->valueForMessage($varName, $expected)
             ));
         }
     }
 
     /**
-     * Validate that a value contains a substring.
+     * Validate that a value contains one or more expected substrings.
+     *
+     * When an array is given, every item must be present in the value.
      *
      * @param ValidationResult $result
      * @param string $varName
      * @param mixed $value
-     * @param string $needle
+     * @param string|array $needle
      * @return void
      */
     private function validateContains(ValidationResult $result, $varName, $value, $needle)
     {
-        if (strpos((string) $value, (string) $needle) === false) {
-            $result->addError(sprintf(
-                'Environment variable %s does not contain expected value: %s',
-                $varName,
-                $needle
-            ));
+        $needles = is_array($needle) ? $needle : array($needle);
+        $haystack = (string) $value;
+
+        foreach ($needles as $item) {
+            $item = (string) $item;
+
+            if ($item === '') {
+                continue;
+            }
+
+            if (strpos($haystack, $item) === false) {
+                $result->addError(sprintf(
+                    'Environment variable %s does not contain expected value: %s',
+                    $varName,
+                    $item
+                ));
+            }
         }
     }
 
@@ -1051,7 +1081,7 @@ class EnvValidator implements ValidatorInterface
             $result->addError(sprintf(
                 'Environment variable %s is not a valid boolean, got: %s',
                 $varName,
-                $value
+                $this->valueForMessage($varName, $value)
             ));
             return;
         }
@@ -1086,7 +1116,7 @@ class EnvValidator implements ValidatorInterface
             $result->addError(sprintf(
                 'Environment variable %s is not numeric, got: %s',
                 $varName,
-                $value
+                $this->valueForMessage($varName, $value)
             ));
             return;
         }
@@ -1095,7 +1125,7 @@ class EnvValidator implements ValidatorInterface
             $result->addError(sprintf(
                 'Environment variable %s value %s is less than minimum %s',
                 $varName,
-                $value,
+                $this->valueForMessage($varName, $value),
                 $expected['min']
             ));
         }
@@ -1104,7 +1134,7 @@ class EnvValidator implements ValidatorInterface
             $result->addError(sprintf(
                 'Environment variable %s value %s is greater than maximum %s',
                 $varName,
-                $value,
+                $this->valueForMessage($varName, $value),
                 $expected['max']
             ));
         }
@@ -1126,7 +1156,7 @@ class EnvValidator implements ValidatorInterface
                 $result->addError(sprintf(
                     'Environment variable %s value %s is less than %s',
                     $varName,
-                    $value,
+                    $this->valueForMessage($varName, $value),
                     $min
                 ));
             }
@@ -1158,7 +1188,7 @@ class EnvValidator implements ValidatorInterface
                 $result->addError(sprintf(
                     'Environment variable %s value %s is greater than %s',
                     $varName,
-                    $value,
+                    $this->valueForMessage($varName, $value),
                     $max
                 ));
             }

@@ -301,7 +301,7 @@ class EnvValidatorTest extends TestCase
         $this->assertEquals('env', $validator->getName());
     }
 
-    public function testSensitiveVariableIsRejected()
+    public function testSensitiveRequiredVariableIsCheckedForPresenceOnly()
     {
         $_ENV['DB_PASSWORD'] = 'super_secret_value';
 
@@ -312,20 +312,18 @@ class EnvValidatorTest extends TestCase
             'required' => array('DB_PASSWORD'),
         ));
 
-        $this->assertFalse($result->isSuccess());
+        // The variable exists, so the validation must pass. Being sensitive
+        // only means its value is never exposed.
+        $this->assertTrue($result->isSuccess());
 
-        $errors = $result->getErrors();
-        $found = false;
-        foreach ($errors as $error) {
-            if (strpos($error, 'Sensitive environment variable') !== false && strpos($error, 'DB_PASSWORD') !== false) {
-                $found = true;
-                break;
-            }
-        }
-        $this->assertTrue($found);
+        $details = $result->getDetails();
+        $this->assertEquals('ok', $details['env_status']['DB_PASSWORD']);
+
+        $detailsJson = json_encode($result->toArray());
+        $this->assertFalse(strpos($detailsJson, 'super_secret_value') !== false);
     }
 
-    public function testSensitiveVariableValueIsNeverReturned()
+    public function testSensitiveVariableValueRuleIsEvaluatedWithoutExposingValue()
     {
         $_ENV['APP_KEY'] = 'should_not_be_visible';
 
@@ -340,13 +338,39 @@ class EnvValidatorTest extends TestCase
             ),
         ));
 
-        $detailsJson = json_encode($result->toArray());
-
-        $this->assertFalse($result->isSuccess());
-        $this->assertFalse(strpos($detailsJson, 'should_not_be_visible') !== false);
+        // The rule is evaluated against the real value: it matches, so it passes.
+        $this->assertTrue($result->isSuccess());
+        $this->assertEmpty($result->getErrors());
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'should_not_be_visible') !== false);
     }
 
-    public function testSensitiveRuleVariableIsRemovedFromRules()
+    public function testSensitiveVariableValueRuleFailsAndMasksValue()
+    {
+        $_ENV['APP_KEY'] = 'real-secret-app-key';
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider);
+
+        $result = $validator->validate(array(
+            'rules' => array(
+                'APP_KEY' => array(
+                    'equals' => 'a_different_value',
+                ),
+            ),
+        ));
+
+        // The mismatch is detected...
+        $this->assertFalse($result->isSuccess());
+        $this->assertContains('APP_KEY', implode(' ', $result->getErrors()));
+
+        // ...but neither the real value nor the expected one is exposed.
+        $errorsJson = json_encode($result->getErrors());
+        $this->assertFalse(strpos($errorsJson, 'real-secret-app-key') !== false);
+        $this->assertFalse(strpos($errorsJson, 'a_different_value') !== false);
+        $this->assertFalse(strpos($errorsJson, '***') === false);
+    }
+
+    public function testSensitiveRuleVariableEvaluatesRulesButHidesValue()
     {
         $_ENV['API_TOKEN'] = 'abc123';
         $_ENV['APP_ENV'] = 'production';
@@ -357,17 +381,110 @@ class EnvValidatorTest extends TestCase
         $result = $validator->validate(array(
             'required' => array('APP_ENV'),
             'rules' => array(
-                'API_TOKEN' => array('equals' => 'abc123'),
+                'API_TOKEN' => array('equals' => 'a_different_value'),
                 'APP_ENV' => array('equals' => 'production'),
             ),
         ));
 
+        // API_TOKEN rule mismatch is reported, APP_ENV passes.
+        $this->assertFalse($result->isSuccess());
+        $this->assertNotEmpty($result->getErrors());
+
+        $details = $result->getDetails();
+        $this->assertEquals('ok', $details['env_status']['API_TOKEN']);
+        $this->assertContains('API_TOKEN', $details['env_sensitive_variables']);
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'abc123') !== false);
+    }
+
+    public function testSensitiveCsvRuleValidatesAllExpectedItems()
+    {
+        $_ENV['SERVICIOS_MIGRADOS_TOKEN'] = 'svc-local,fdfa';
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider);
+
+        $result = $validator->validate(array(
+            'rules' => array(
+                'SERVICIOS_MIGRADOS_TOKEN' => array(
+                    'csv' => array(
+                        'contains' => array('svc-local', 'duplicidad-domicilio'),
+                    ),
+                ),
+            ),
+        ));
+
+        // 'duplicidad-domicilio' is missing from the CSV value.
+        $this->assertFalse($result->isSuccess());
+        $this->assertContains(
+            'Environment variable SERVICIOS_MIGRADOS_TOKEN CSV is missing required item: duplicidad-domicilio',
+            $result->getErrors()
+        );
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'svc-local,fdfa') !== false);
+    }
+
+    public function testSensitiveContainsRuleAcceptsArrayOfExpectedValues()
+    {
+        $_ENV['RUNIFICADOR_REST_API_TOKEN_URL'] = 'https://api.example.com/v1/token';
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider);
+
+        $result = $validator->validate(array(
+            'rules' => array(
+                'RUNIFICADOR_REST_API_TOKEN_URL' => array(
+                    'contains' => array('api.example.com', 'not-present'),
+                ),
+            ),
+        ));
+
+        $this->assertFalse($result->isSuccess());
+        $this->assertContains(
+            'Environment variable RUNIFICADOR_REST_API_TOKEN_URL does not contain expected value: not-present',
+            $result->getErrors()
+        );
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'https://api.example.com/v1/token') !== false);
+    }
+
+    public function testTokenUrlVariableIsValidatedForPresenceAndRules()
+    {
+        $_ENV['RUNIFICADOR_REST_TOKEN_URL'] = 'https://example.com/token';
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider);
+
+        $result = $validator->validate(array(
+            'required' => array('RUNIFICADOR_REST_TOKEN_URL'),
+            'rules' => array(
+                'RUNIFICADOR_REST_TOKEN_URL' => array('contains' => 'value-that-does-not-match'),
+            ),
+        ));
+
+        // Existence is validated and the value rule is evaluated too.
         $this->assertFalse($result->isSuccess());
 
         $details = $result->getDetails();
-        $rulesChecked = $details['variables_checked']['rules'];
-        $this->assertNotContains('API_TOKEN', $rulesChecked);
-        $this->assertContains('APP_ENV', $rulesChecked);
+        $this->assertEquals('ok', $details['env_status']['RUNIFICADOR_REST_TOKEN_URL']);
+        $this->assertContains('RUNIFICADOR_REST_TOKEN_URL', $details['env_sensitive_variables']);
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'example.com') !== false);
+    }
+
+    public function testKeyPrefixVariableIsValidatedForPresenceButNeverShown()
+    {
+        $_ENV['RUNIFICADOR_REST_CACHE_KEY_PRE'] = 'cache-prefix-xyz';
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider);
+
+        $result = $validator->validate(array(
+            'required' => array('RUNIFICADOR_REST_CACHE_KEY_PRE'),
+        ));
+
+        $this->assertTrue($result->isSuccess());
+
+        $details = $result->getDetails();
+        $this->assertEquals('ok', $details['env_status']['RUNIFICADOR_REST_CACHE_KEY_PRE']);
+        $this->assertContains('RUNIFICADOR_REST_CACHE_KEY_PRE', $details['env_sensitive_variables']);
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'cache-prefix-xyz') !== false);
     }
 
     public function testNonSensitiveVariablesAreNotBlocked()
@@ -398,7 +515,7 @@ class EnvValidatorTest extends TestCase
         $this->assertTrue($result->isSuccess());
     }
 
-    public function testSensitiveInOptionalIsRejected()
+    public function testSensitiveInOptionalIsNotRejected()
     {
         $_ENV['CLIENT_SECRET'] = 'secret_value';
 
@@ -409,7 +526,55 @@ class EnvValidatorTest extends TestCase
             'optional' => array('CLIENT_SECRET'),
         ));
 
+        $this->assertTrue($result->isSuccess());
+
+        $details = $result->getDetails();
+        $this->assertEquals('ok', $details['env_status']['CLIENT_SECRET']);
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'secret_value') !== false);
+    }
+
+    public function testMissingSensitiveRequiredVariableIsReportedWithoutValue()
+    {
+        unset($_ENV['DB_PASSWORD']);
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider);
+
+        $result = $validator->validate(array(
+            'required' => array('DB_PASSWORD'),
+        ));
+
+        // Existence is validated: missing is an error even for a secret...
         $this->assertFalse($result->isSuccess());
+        $this->assertContains(
+            'Required environment variable is missing: DB_PASSWORD',
+            $result->getErrors()
+        );
+
+        // ...but no value is ever exposed.
+        $details = $result->getDetails();
+        $this->assertEquals('missing', $details['env_status']['DB_PASSWORD']);
+        $this->assertFalse(isset($details['env_values']['DB_PASSWORD']));
+    }
+
+    public function testSensitiveValueIsNeverShownInShowValues()
+    {
+        $_ENV['API_TOKEN'] = 'secret-token-value';
+
+        $provider = new EnvironmentProvider();
+        $validator = new EnvValidator($provider, array(
+            'required' => array(),
+            'optional' => array(),
+            'rules' => array(),
+            'show_values' => array('API_TOKEN'),
+        ));
+
+        $result = $validator->validate();
+        $details = $result->getDetails();
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertFalse(isset($details['env_values']['API_TOKEN']));
+        $this->assertFalse(strpos(json_encode($result->toArray()), 'secret-token-value') !== false);
     }
 
     public function testValidatesOptionalVariables()
