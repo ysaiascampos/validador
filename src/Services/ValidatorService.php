@@ -287,9 +287,13 @@ class ValidatorService
             }
 
             try {
-                $validatorOptions = (isset($options[$name]) && is_array($options[$name]))
-                    ? $options[$name]
-                    : array();
+                // Database validation is configured in config/validator.php:
+                // never forward database objects/schemas/connections as options.
+                $validatorOptions = array();
+
+                if ($name !== 'database' && isset($options[$name]) && is_array($options[$name])) {
+                    $validatorOptions = $options[$name];
+                }
 
                 $result = $validator->validate($validatorOptions);
                 $consolidated->mergeStatus($result);

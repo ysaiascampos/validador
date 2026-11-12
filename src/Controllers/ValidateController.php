@@ -105,33 +105,17 @@ class ValidateController extends Controller
     /**
      * Build validation options from the request payload.
      *
+     * Database validation is configured exclusively in config/validator.php,
+     * so database objects, schemas and connections are deliberately ignored
+     * when received in the request. Only the enable flags, env and git
+     * options are forwarded to the service.
+     *
      * @param array $payload
      * @return array
      */
     private function buildValidationOptions(array $payload)
     {
         $options = array();
-
-        if (isset($payload['connections'])) {
-            $options['connections'] = $payload['connections'];
-            $options['database']['connections'] = $payload['connections'];
-        }
-
-        if (isset($payload['connection'])) {
-            $options['connection'] = $payload['connection'];
-            $options['database']['connection'] = $payload['connection'];
-        }
-
-        if (isset($payload['schemas'])) {
-            $options['database']['schemas'] = $payload['schemas'];
-        }
-
-        if (isset($payload['database'])) {
-            $options['database'] = array_merge(
-                isset($options['database']) ? $options['database'] : array(),
-                $payload['database']
-            );
-        }
 
         if (isset($payload['env'])) {
             $options['env'] = $payload['env'];

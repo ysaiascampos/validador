@@ -40,11 +40,16 @@ $config = array(
     'database' => array(
         'expected_schemas' => array(
             'SCHEMA1' => array(
-                'columns' => array(
-                    'ID' => array(
-                        'type' => 'NUMBER',
-                        'length' => 22,
-                        'nullable' => false,
+                'tables' => array(
+                    'TABLE1' => array(
+                        'columns' => array(
+                            'ID' => array(
+                                'type' => 'NUMBER',
+                                'length' => 22,
+                                'nullable' => false,
+                            ),
+                        ),
+                        'primary_keys' => true,
                     ),
                 ),
             ),
@@ -78,9 +83,6 @@ $service->registerValidators(array(
 // 2. Run all validations
 echo "Running all validators...\n";
 $result = $service->validate(array(
-    'database' => array(
-        'connection' => 'oracle',
-    ),
     'env' => array(
         'required' => array('APP_ENV', 'DB_CONNECTION', 'APP_KEY'),
         'rules' => array(

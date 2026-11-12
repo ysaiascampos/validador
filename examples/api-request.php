@@ -17,28 +17,31 @@ echo "-------------------------------------\n";
 echo "curl -X POST http://localhost:8000/api/validate \\\n";
 echo "  -H \"Authorization: Bearer your-api-token\" \\\n";
 echo "  -H \"Content-Type: application/json\" \\\n";
-echo "  -d '{\"connection\":\"oracle\"}'\n\n";
+echo "  -d '{}'\n\n";
 
-echo "Example 2: Validate database object checklist\n";
+echo "Example 2: Validate database checklist (configured in config/validator.php)\n";
 echo "-------------------------------------\n";
 echo "curl -X POST http://localhost:8000/api/validate \\\n";
 echo "  -H \"Authorization: Bearer your-api-token\" \\\n";
 echo "  -H \"Content-Type: application/json\" \\\n";
-echo "  -d '{\"connection\":\"oracle\",\"database\":{\"schemas\":[\"ASIGNACION\"],\"tables\":[\"ASIGNACION.EMPLEADOS\",\"ASIGNACION.CARGOS\"],\"columns\":[\"ASIGNACION.EMPLEADOS.ID\"],\"functions\":[\"ASIGNACION.GET_EMPLEADO\"],\"primary_keys\":[\"ASIGNACION.EMPLEADOS\"]}}'\n\n";
+echo "  -d '{\"enable\":{\"database\":true}}'\n\n";
+echo "The objects to validate (schemas, tables, columns, indexes, constraints...)\n";
+echo "are declared in config/validator.php under database.expected_schemas or\n";
+echo "database.checklist. Sending them in the request has no effect.\n\n";
 
 echo "Example 3: Validate without database\n";
 echo "-------------------------------------\n";
 echo "curl -X POST http://localhost:8000/api/validate \\\n";
 echo "  -H \"Authorization: Bearer your-api-token\" \\\n";
 echo "  -H \"Content-Type: application/json\" \\\n";
-echo "  -d '{\"connection\":\"oracle\",\"enable\":{\"database\":false,\"env\":true,\"git\":true}}'\n\n";
+echo "  -d '{\"enable\":{\"database\":false,\"env\":true,\"git\":true}}'\n\n";
 
 echo "Example 4: With invalid token\n";
 echo "-------------------------------------\n";
 echo "curl -X POST http://localhost:8000/api/validate \\\n";
 echo "  -H \"Authorization: Bearer wrong-token\" \\\n";
 echo "  -H \"Content-Type: application/json\" \\\n";
-echo "  -d '{\"connection\":\"oracle\"}'\n\n";
+echo "  -d '{}'\n\n";
 
 echo "Expected response (success):\n";
 echo json_encode(array(

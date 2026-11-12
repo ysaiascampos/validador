@@ -176,16 +176,29 @@ class ValidationResult {
 
 ### Validar esquema completo
 
+La base de datos **no se configura desde el request**. Todo lo que se revisa
+(tablas, columnas, índices, constraints, funciones, etc.) se declara en
+`config/validator.php`, en `database.expected_schemas` o `database.checklist`.
+
 ```http
 POST /api/validate
 Authorization: Bearer {token}
 Content-Type: application/json
 
+{}
+```
+
+Los parámetros `schema`, `tables`, `connections` o `database` enviados en el
+payload se ignoran. Solo se respeta `enable.database` para habilitar o
+deshabilitar el validador:
+
+```json
 {
-    "schema": "ASIGNACION",
-    "tables": ["personas", "grupo_familiar"],
-    "validate_indexes": true,
-    "validate_constraints": true
+    "enable": {
+        "database": true,
+        "env": true,
+        "git": true
+    }
 }
 ```
 
@@ -305,24 +318,68 @@ vendor/bin/phpunit --filter DatabaseValidatorTest
 
 ## 🎨 Configuración Avanzada
 
-### Configurar múltiples esquemas
+### Configurar qué se valida en base de datos
 
 ```php
 // config/validator.php
 return [
+    // Conexiones (config/database.php) y el esquema que representa cada una.
+    'default_connection' => 'oracle',
     'connections' => [
-        'oracle' => [
-            'schemas' => ['ASIGNACION', 'EXPORT'],
+        'oracle'        => 'ASIGNACION',
+        'oracle_export' => 'ASIGNACION_EXPORT',
+    ],
+
+    'database' => [
+        // Conexiones a validar. Vacío = solo default_connection.
+        'connections' => ['oracle', 'oracle_export'],
+
+        // Objetos esperados, anidados por esquema (nombres relativos).
+        'expected_schemas' => [
+            'ASIGNACION' => [
+                'tables' => [
+                    'PERSONAS' => [
+                        'columns' => [
+                            'RUT'    => ['type' => 'VARCHAR2', 'length' => 10, 'nullable' => false],
+                            'NOMBRE' => 'VARCHAR2',
+                        ],
+                        'primary_keys' => true,
+                        'indexes'      => ['IDX_PERSONAS_RUT'],
+                        'foreign_keys' => ['FK_PERSONAS_GRUPO'],
+                        'constraints'  => ['CK_PERSONAS_ESTADO'],
+                    ],
+                    'GRUPO_FAMILIAR',
+                ],
+                'functions'  => ['GET_PERSONA'],
+                'procedures' => ['SP_PERSONA'],
+                'sequences'  => ['SEQ_PERSONA'],
+                'views'      => ['V_PERSONAS'],
+                'triggers'   => ['TRG_PERSONAS'],
+                'packages'   => ['PKG_PERSONA'],
+                'synonyms'   => ['SIN_PERSONA'],
+            ],
+            'ASIGNACION_EXPORT' => [
+                'tables' => ['PERSONAS_EXPORT'],
+            ],
         ],
-        'oracle_export' => [
-            'schemas' => ['ASIGNACION_EXPORT'],
+
+        // Alternativa plana (se mezcla con expected_schemas), con nombres
+        // totalmente calificados. Opcional.
+        'checklist' => [
+            // 'tables' => ['ASIGNACION.PERSONAS'],
+            // 'column_types' => ['ASIGNACION.PERSONAS.RUT' => 'VARCHAR2'],
+            // 'indexes' => ['ASIGNACION.PERSONAS.IDX_PERSONAS_RUT'],
         ],
     ],
-    
-    'validators' => [
-        'database' => [
-            'enabled' => true,
-            'auto_discover' => true,
-        ],
-        'env' => [
-            'enabled'
+];
+```
+
+Notas:
+
+- `database.connections` indica **qué conexiones** validar; el mapa raíz
+  `connections` indica **qué esquema** corresponde a cada conexión (se usa para
+  asignar cada objeto a la conexión correcta).
+- Si `database.connections` está vacío, se valida solo `default_connection`.
+- `expected_schemas` acepta listas relativas (`PERSONAS`), nombres calificados
+  (`ASIGNACION.PERSONAS`) y definiciones anidadas de tablas con `columns`,
+  `primary_keys`, `indexes`, `foreign_keys` y `constraints`.

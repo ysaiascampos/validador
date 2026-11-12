@@ -143,6 +143,23 @@ interface OracleRepositoryInterface
     public function getConstraints($schema, $table);
 
     /**
+     * Check if a schema exists.
+     *
+     * @param string $schema
+     * @return bool
+     */
+    public function schemaExists($schema);
+
+    /**
+     * Check if a table exists in a schema.
+     *
+     * @param string $schema
+     * @param string $table
+     * @return bool
+     */
+    public function tableExists($schema, $table);
+
+    /**
      * Check if a column exists in a table.
      *
      * @param string $schema

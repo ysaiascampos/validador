@@ -103,6 +103,31 @@ class ValidatorServiceTest extends TestCase
         $this->assertTrue($result->isSuccess());
     }
 
+    public function testDatabaseOptionsAreNotForwardedToTheValidator()
+    {
+        $service = new ValidatorService();
+
+        $mock = $this->getMockBuilder(ValidatorInterface::class)
+            ->setMethods(array('validate', 'getName'))
+            ->getMock();
+        $mock->method('getName')->willReturn('database');
+        $mock->expects($this->once())
+            ->method('validate')
+            ->with($this->equalTo(array()))
+            ->willReturn(new ValidationResult('database'));
+
+        $service->registerValidator($mock);
+
+        // Database objects sent as parameters must never reach the validator.
+        $result = $service->validate(array(
+            'database' => array(
+                'tables' => array('ASIGNACION.PERSONAS'),
+            ),
+        ));
+
+        $this->assertTrue($result->isSuccess());
+    }
+
     private function getMockValidator($name)
     {
         $mock = $this->getMockBuilder(ValidatorInterface::class)

@@ -117,39 +117,90 @@ return array(
     */
     'database' => array(
 
-        'schemas'    => true,
-        'tables'     => true,
-        'columns'    => array(
-            'enabled'    => true,
-            'types'      => true,
-            'length'     => true,
-            'nullable'   => true,
-            'defaults'   => true,
-        ),
-        'functions'  => true,
-        'procedures' => true,
-        'sequences'  => true,
-        'views'      => true,
-        'triggers'   => true,
-        'packages'   => true,
-        'synonyms'   => true,
-        'indexes'    => true,
-        'keys'       => array(
-            'primary'   => true,
-            'foreign'   => true,
-        ),
-        'constraints' => true,
+        /*
+        |--------------------------------------------------------------------------
+        | Connections To Validate
+        |--------------------------------------------------------------------------
+        |
+        | Names of the connections defined in config/database.php that must be
+        | validated. Leave it empty to validate only "default_connection".
+        | Each connection is mapped to its schema through the "connections"
+        | key at the root of this file.
+        |
+        */
+        'connections' => array(),
 
         /*
         |--------------------------------------------------------------------------
         | Expected Schema Definitions
         |--------------------------------------------------------------------------
         |
-        | Define the expected database structure for validation. Each schema
-        | can list expected tables, their columns, and other objects.
+        | Everything that must be reviewed in the database is declared here:
+        | schemas, tables, columns (type/length/nullable/default), indexes,
+        | primary/foreign keys, constraints, functions, procedures, sequences,
+        | views, triggers, packages and synonyms.
+        |
+        | Object names are relative to the schema key (fully qualified names
+        | SCHEMA.OBJECT are accepted too). Example:
+        |
+        | 'ASIGNACION' => array(
+        |     'tables' => array(
+        |         'PERSONAS' => array(
+        |             'columns' => array(
+        |                 'RUT'    => array('type' => 'VARCHAR2', 'length' => 10, 'nullable' => false),
+        |                 'NOMBRE' => 'VARCHAR2',
+        |             ),
+        |             'primary_keys' => true,
+        |             'indexes'      => array('IDX_PERSONAS_RUT'),
+        |             'foreign_keys' => array('FK_PERSONAS_GRUPO'),
+        |             'constraints'  => array('CK_PERSONAS_ESTADO'),
+        |         ),
+        |         'GRUPO_FAMILIAR',
+        |     ),
+        |     'functions'  => array('GET_PERSONA'),
+        |     'procedures' => array('SP_PERSONA'),
+        |     'sequences'  => array('SEQ_PERSONA'),
+        |     'views'      => array('V_PERSONAS'),
+        |     'triggers'   => array('TRG_PERSONAS'),
+        |     'packages'   => array('PKG_PERSONA'),
+        |     'synonyms'   => array('SIN_PERSONA'),
+        | ),
         |
         */
         'expected_schemas' => array(),
+
+        /*
+        |--------------------------------------------------------------------------
+        | Flat Checklist (optional)
+        |--------------------------------------------------------------------------
+        |
+        | Alternative flat format, merged with expected_schemas. It is the same
+        | format that used to be sent in the API payload, but now it lives in
+        | this file. Names should be fully qualified:
+        |
+        | 'checklist' => array(
+        |     'schemas'       => array('ASIGNACION'),
+        |     'tables'        => array('ASIGNACION.PERSONAS'),
+        |     'columns'       => array('ASIGNACION.PERSONAS.RUT'),
+        |     'column_types'  => array('ASIGNACION.PERSONAS.RUT' => 'VARCHAR2'),
+        |     'column_lengths'=> array('ASIGNACION.PERSONAS.RUT' => 10),
+        |     'nullable'      => array('ASIGNACION.PERSONAS.RUT' => false),
+        |     'defaults'      => array('ASIGNACION.PERSONAS.RUT' => null),
+        |     'functions'     => array('ASIGNACION.GET_PERSONA'),
+        |     'procedures'    => array('ASIGNACION.SP_PERSONA'),
+        |     'sequences'     => array('ASIGNACION.SEQ_PERSONA'),
+        |     'views'         => array('ASIGNACION.V_PERSONAS'),
+        |     'triggers'      => array('ASIGNACION.TRG_PERSONAS'),
+        |     'packages'      => array('ASIGNACION.PKG_PERSONA'),
+        |     'synonyms'      => array('ASIGNACION.SIN_PERSONA'),
+        |     'indexes'       => array('ASIGNACION.PERSONAS.IDX_PERSONAS_RUT'),
+        |     'primary_keys'  => array('ASIGNACION.PERSONAS'),
+        |     'foreign_keys'  => array('ASIGNACION.PERSONAS.FK_PERSONAS_GRUPO'),
+        |     'constraints'   => array('ASIGNACION.PERSONAS.CK_PERSONAS_ESTADO'),
+        | ),
+        |
+        */
+        'checklist' => array(),
 
     ),
 
