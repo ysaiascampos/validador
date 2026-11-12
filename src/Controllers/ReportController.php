@@ -4,10 +4,11 @@ namespace Vendor\Validator\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Controller;
 use Vendor\Validator\Services\ReportPresenter;
 use Vendor\Validator\Services\ValidatorService;
 
-class ReportController
+class ReportController extends Controller
 {
     /**
      * @var ValidatorService

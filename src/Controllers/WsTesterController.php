@@ -4,8 +4,9 @@ namespace Vendor\Validator\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controller;
 
-class WsTesterController
+class WsTesterController extends Controller
 {
     /**
      * Show the non-technical web service workbench.
