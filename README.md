@@ -247,6 +247,46 @@ Content-Type: application/json
 }
 ```
 
+## 🖥️ Reporte visual (HTML / PDF)
+
+El paquete incluye una vista lista para mostrar el resultado de la validación
+de forma entendible para el usuario: resumen general, errores, advertencias y
+el detalle de cada validador (variables, base de datos y git).
+
+Rutas:
+
+- `GET /validator/report` — reporte HTML imprimible.
+- `GET /validator/report/pdf` — descarga en PDF si hay motor disponible.
+
+Configuración en `config/validator.php`:
+
+```php
+'report' => array(
+    'enabled'    => true,
+    'title'      => env('VALIDATOR_REPORT_TITLE', 'Reporte de validación'),
+    'middleware' => array('auth'), // middleware de la app anfitriona
+),
+```
+
+Desde la vista se puede:
+
+- Activar/desactivar base de datos, variables de entorno y git.
+- Imprimir o guardar como PDF con el navegador.
+- Descargar el PDF directo si `dompdf/dompdf` está instalado.
+
+Para habilitar la descarga automática de PDF:
+
+```bash
+composer require dompdf/dompdf
+```
+
+Si no hay motor PDF, `/validator/report/pdf` muestra la versión imprimible con
+un aviso, sin fallar.
+
+**Seguridad:** el reporte muestra estados y nombres de objetos (no muestra
+valores de variables protegidas). Protégelo con el middleware de tu aplicación
+(`auth`, `can`, etc.) o deja `enabled` en `false` si no lo necesitas.
+
 ## 🔐 Autenticación
 
 ### BearerTokenMiddleware

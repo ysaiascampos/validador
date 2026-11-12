@@ -22,6 +22,9 @@
         "mockery/mockery": ">=0.9",
         "orchestra/testbench": ">=3.0"
     },
+    "suggest": {
+        "dompdf/dompdf": "Permite descargar el reporte de validación en PDF."
+    },
     "autoload": {
         "psr-4": {
             "Vendor\\Validator\\": "src/"

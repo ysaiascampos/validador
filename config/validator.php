@@ -108,6 +108,23 @@ return array(
 
     /*
     |--------------------------------------------------------------------------
+    | Visual Report
+    |--------------------------------------------------------------------------
+    |
+    | The report page renders the validation result in a friendly HTML view and
+    | can download it as PDF when a PDF engine is available (dompdf). Protect
+    | the route with the middleware of the host application when needed, for
+    | example: 'middleware' => array('auth').
+    |
+    */
+    'report' => array(
+        'enabled' => true,
+        'title' => env('VALIDATOR_REPORT_TITLE', 'Reporte de validación'),
+        'middleware' => array(),
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Validation Settings
     |--------------------------------------------------------------------------
     |

@@ -279,6 +279,17 @@ class ValidatorServiceProvider extends ServiceProvider
 
         if (method_exists($this, 'loadViewsFrom')) {
             $this->loadViewsFrom($viewsPath, 'validator');
+            return;
+        }
+
+        // Laravel 4.2: register the package view namespace manually.
+        if (isset($this->app['view']) && method_exists($this->app['view'], 'addNamespace')) {
+            $this->app['view']->addNamespace('validator', $viewsPath);
+            return;
+        }
+
+        if (class_exists('Illuminate\\Support\\Facades\\View')) {
+            \Illuminate\Support\Facades\View::addNamespace('validator', $viewsPath);
         }
     }
 
