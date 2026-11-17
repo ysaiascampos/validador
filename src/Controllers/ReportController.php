@@ -131,14 +131,61 @@ class ReportController extends Controller
      */
     private function renderHtml(array $report, array $options, $pdfMode, $message)
     {
-        return view('validator::report', array(
+        $data = array(
             'report' => $report,
             'options' => $this->normalizeOptions($options),
             'query' => $this->query($options),
             'pdf_available' => $this->pdfAvailable(),
             'pdf_mode' => $pdfMode,
             'pdf_message' => $message,
-        ))->render();
+        );
+
+        // Laravel 4.2 imprime "{{ }}" sin escapar (el escapado automatico llego
+        // en 5.0). Para no interpretar como HTML un valor de entorno o de base
+        // de datos, escapamos los datos antes de renderizar en la vista legacy.
+        if ($this->legacyBlade()) {
+            $data['report'] = $this->escapeValues($report);
+            $data['pdf_message'] = $this->escapeValues($message);
+        }
+
+        return view('validator::report', $data)->render();
+    }
+
+    /**
+     * Whether the running application uses the pre-5.0 Blade escaping rules.
+     *
+     * @return bool
+     */
+    private function legacyBlade()
+    {
+        if (!class_exists('Illuminate\\Foundation\\Application')) {
+            return false;
+        }
+
+        return version_compare(\Illuminate\Foundation\Application::VERSION, '5.0', '<');
+    }
+
+    /**
+     * Escape strings recursively, leaving other scalar types untouched.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private function escapeValues($value)
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = $this->escapeValues($item);
+            }
+
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        }
+
+        return $value;
     }
 
     /**
