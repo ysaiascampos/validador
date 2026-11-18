@@ -18,33 +18,9 @@ Paquete Composer reutilizable con **Clean Architecture** para validar esquemas d
 
 ## 📦 Instalación
 
-El paquete no está en Packagist, así que se instala desde un repositorio VCS. Hay dos orígenes válidos.
+El paquete no está en Packagist y su repositorio principal es el interno (`git.mds.cl`), que no está expuesto públicamente. GitHub es solo un espejo.
 
-### Versión etiquetada (recomendada)
-
-El tag `v1.0.0` vive en GitHub:
-
-```bash
-composer require validador/core:^1.0
-```
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/ysaiascampos/validador.git"
-        }
-    ],
-    "require": {
-        "validador/core": "^1.0"
-    }
-}
-```
-
-### Rama de desarrollo
-
-La rama `validador` se publica tanto en GitHub como en el espejo interno:
+### Desde el repositorio interno (principal)
 
 ```bash
 composer require validador/core:dev-validador
@@ -64,7 +40,29 @@ composer require validador/core:dev-validador
 }
 ```
 
-Si el entorno no tiene salida a GitHub, deja el espejo interno como primer repositorio y usa `dev-validador`.
+La rama `validador` es la que recibe los cambios del paquete. Crea el tag `v1.0.0` también en este repositorio cuando quieras fijar una versión estable.
+
+### Desde el espejo de GitHub
+
+Si no hay acceso al repositorio interno, el espejo publica las mismas ramas (`main` y `validador`) y el tag `v1.0.0`:
+
+```bash
+composer require validador/core:^1.0
+```
+
+```json
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/ysaiascampos/validador.git"
+        }
+    ],
+    "require": {
+        "validador/core": "^1.0"
+    }
+}
+```
 
 ## 🚀 Uso Básico
 
