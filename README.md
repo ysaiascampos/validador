@@ -18,13 +18,37 @@ Paquete Composer reutilizable con **Clean Architecture** para validar esquemas d
 
 ## 📦 Instalación
 
+El paquete no está en Packagist, así que se instala desde un repositorio VCS. Hay dos orígenes válidos.
+
+### Versión etiquetada (recomendada)
+
+El tag `v1.0.0` vive en GitHub:
+
+```bash
+composer require validador/core:^1.0
+```
+
+```json
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/ysaiascampos/validador.git"
+        }
+    ],
+    "require": {
+        "validador/core": "^1.0"
+    }
+}
+```
+
+### Rama de desarrollo
+
+La rama `validador` se publica tanto en GitHub como en el espejo interno:
+
 ```bash
 composer require validador/core:dev-validador
 ```
-
-### Configuración del repositorio VCS
-
-Como el paquete no está en Packagist, agrega el repositorio en tu `composer.json`:
 
 ```json
 {
@@ -39,6 +63,8 @@ Como el paquete no está en Packagist, agrega el repositorio en tu `composer.jso
     }
 }
 ```
+
+Si el entorno no tiene salida a GitHub, deja el espejo interno como primer repositorio y usa `dev-validador`.
 
 ## 🚀 Uso Básico
 
