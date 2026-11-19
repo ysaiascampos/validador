@@ -112,15 +112,27 @@ return array(
     |--------------------------------------------------------------------------
     |
     | The report page renders the validation result in a friendly HTML view and
-    | can download it as PDF when a PDF engine is available (dompdf). Protect
-    | the route with the middleware of the host application when needed, for
-    | example: 'middleware' => array('auth').
+    | can download it as PDF when a PDF engine is available (dompdf).
+    |
+    | The package protects the route with HTTP Basic auth: no session and no
+    | application login. It is enabled by default, so VALIDATOR_REPORT_USER and
+    | VALIDATOR_REPORT_PASSWORD must be configured or the route answers 401.
+    | Serve the report over HTTPS: Basic credentials travel encoded, not
+    | encrypted.
+    |
+    | Extra middleware of the host application can be added with 'middleware'.
     |
     */
     'report' => array(
         'enabled' => true,
         'title' => env('VALIDATOR_REPORT_TITLE', 'Reporte de validación'),
         'middleware' => array(),
+        'auth' => array(
+            'enabled'  => !in_array(strtolower(trim((string) env('VALIDATOR_REPORT_AUTH', '1'))), array('0', 'false', 'no', 'off'), true),
+            'user'     => env('VALIDATOR_REPORT_USER', ''),
+            'password' => env('VALIDATOR_REPORT_PASSWORD', ''),
+            'realm'    => env('VALIDATOR_REPORT_REALM', 'Validador RSH'),
+        ),
     ),
 
     /*

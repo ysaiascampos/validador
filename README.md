@@ -288,7 +288,13 @@ Configuración en `config/validator.php`:
 'report' => array(
     'enabled'    => true,
     'title'      => env('VALIDATOR_REPORT_TITLE', 'Reporte de validación'),
-    'middleware' => array('auth'), // middleware de la app anfitriona
+    'middleware' => array(), // middleware extra de la app anfitriona
+    'auth'       => array(
+        'enabled'  => true,
+        'user'     => env('VALIDATOR_REPORT_USER', ''),
+        'password' => env('VALIDATOR_REPORT_PASSWORD', ''),
+        'realm'    => env('VALIDATOR_REPORT_REALM', 'Validador RSH'),
+    ),
 ),
 ```
 
@@ -308,8 +314,23 @@ Si no hay motor PDF, `/validator/report/pdf` muestra la versión imprimible con
 un aviso, sin fallar.
 
 **Seguridad:** el reporte muestra estados y nombres de objetos (no muestra
-valores de variables protegidas). Protégelo con el middleware de tu aplicación
-(`auth`, `can`, etc.) o deja `enabled` en `false` si no lo necesitas.
+valores de variables protegidas). El paquete lo protege con **HTTP Basic auth
+sin sesión**: no hace falta iniciar sesión en la aplicación, el navegador pide
+usuario y clave con su diálogo nativo y se validan contra
+`VALIDATOR_REPORT_USER` / `VALIDATOR_REPORT_PASSWORD`.
+
+```env
+VALIDATOR_REPORT_USER=coordinador
+VALIDATOR_REPORT_PASSWORD=una-clave-larga-y-aleatoria
+```
+
+- Si `auth.enabled` es `true` y faltan las credenciales, la ruta responde `401`
+  (no queda abierta).
+- El `VALIDATOR_API_TOKEN` es independiente: no lo uses como clave del reporte.
+- Sirve el reporte por **HTTPS**: Basic viaja en base64, no cifrado. En HTTP
+  plano (salvo localhost) las credenciales quedan expuestas.
+- Para desactivar la protección en un entorno controlado:
+  `VALIDATOR_REPORT_AUTH=false`.
 
 ## 🔐 Autenticación
 

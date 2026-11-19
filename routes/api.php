@@ -5,13 +5,14 @@ use Vendor\Validator\Controllers\ValidateController;
 use Vendor\Validator\Controllers\WsTesterController;
 use Vendor\Validator\Controllers\ReportController;
 use Vendor\Validator\Middleware\BearerTokenMiddleware;
+use Vendor\Validator\Middleware\ReportBasicAuthMiddleware;
 
 $laravelVersion = \Illuminate\Foundation\Application::VERSION;
 $reportMiddleware = (array) app('config')->get('validator.report.middleware', array());
 
 if (version_compare($laravelVersion, '5.0', '>=')) {
 
-    Route::group(array('middleware' => $reportMiddleware), function () {
+    Route::group(array('middleware' => array_merge(array(ReportBasicAuthMiddleware::class), $reportMiddleware)), function () {
         Route::get('validator/report', array(
             'uses' => ReportController::class . '@show',
             'as'   => 'validator.report',
@@ -46,10 +47,24 @@ if (version_compare($laravelVersion, '5.0', '>=')) {
 
 } else {
 
-    $reportGroup = array();
+    // Laravel 4.2: el Basic auth del reporte se registra como route filter.
+    $router = Route::getFacadeRoot();
+    $router->filter('validator.report.auth', function ($route, $request) {
+        $middleware = new ReportBasicAuthMiddleware(app('config'));
+        $response = $middleware->handle($request, function ($req) {
+            return null;
+        });
+
+        if ($response !== null) {
+            $response->send();
+            exit;
+        }
+    });
+
+    $reportGroup = array('before' => 'validator.report.auth');
 
     if (!empty($reportMiddleware)) {
-        $reportGroup['before'] = implode('|', $reportMiddleware);
+        $reportGroup['before'] .= '|' . implode('|', $reportMiddleware);
     }
 
     Route::group($reportGroup, function () {
