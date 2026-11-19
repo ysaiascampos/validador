@@ -19,7 +19,7 @@ class WsTesterController extends Controller
             return new JsonResponse(array('error' => 'WS tester is disabled.'), 404);
         }
 
-        return view('validator::workbench');
+        return app('view')->make('validator::workbench');
     }
 
     /**

@@ -148,7 +148,9 @@ class ReportController extends Controller
             $data['pdf_message'] = $this->escapeValues($message);
         }
 
-        return view('validator::report', $data)->render();
+        // app('view') en vez del helper view(): el helper llego en Laravel 5.0
+        // y en 4.2 provocaba "Call to undefined function ...\view()".
+        return app('view')->make('validator::report', $data)->render();
     }
 
     /**
