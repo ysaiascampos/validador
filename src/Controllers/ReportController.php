@@ -5,6 +5,7 @@ namespace Vendor\Validator\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Vendor\Validator\Services\ReportLinkSigner;
 use Vendor\Validator\Services\ReportPresenter;
 use Vendor\Validator\Services\ValidatorService;
 
@@ -307,7 +308,34 @@ class ReportController extends Controller
             $query['enable'][$name] = $enabled ? 1 : 0;
         }
 
+        // Enlace de descarga firmado: evita que el navegador vuelva a pedir
+        // credenciales al abrir el PDF y expira a los pocos minutos.
+        $signer = $this->signer();
+
+        if ($signer->enabled()) {
+            $expires = $signer->expiresAt();
+            $query['expires'] = $expires;
+            $query['signature'] = $signer->sign($expires);
+        }
+
         return $query;
+    }
+
+    /**
+     * Build the signer used by the PDF download link.
+     *
+     * @return ReportLinkSigner
+     */
+    private function signer()
+    {
+        $config = app('config');
+        $secret = trim((string) $config->get('validator.report.auth.secret', ''));
+
+        if ($secret === '') {
+            $secret = (string) $config->get('validator.report.auth.password', '');
+        }
+
+        return new ReportLinkSigner($secret, $config->get('validator.report.download_ttl', 300));
     }
 
     /**

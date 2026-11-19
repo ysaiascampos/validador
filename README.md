@@ -332,6 +332,24 @@ VALIDATOR_REPORT_PASSWORD=una-clave-larga-y-aleatoria
 - Para desactivar la protección en un entorno controlado:
   `VALIDATOR_REPORT_AUTH=false`.
 
+### Descarga del PDF
+
+El botón “Descargar PDF” no vuelve a pedir credenciales: el enlace lleva una
+firma de corta duración (`expires` + `signature`, HMAC-SHA256) que se genera al
+abrir el reporte ya autenticado. La firma solo es válida para
+`/validator/report/pdf` y caduca a los `download_ttl` segundos (300 por
+defecto); con ella no se puede abrir el reporte HTML.
+
+```env
+# opcional: secreto propio para firmar (por defecto usa la clave del reporte)
+VALIDATOR_REPORT_SECRET=
+# opcional: validez del enlace de descarga, en segundos
+VALIDATOR_REPORT_DOWNLOAD_TTL=300
+```
+
+Un enlace de descarga caducado responde `401`: hay que volver a abrir el
+reporte para generar uno nuevo.
+
 ## 🔐 Autenticación
 
 ### BearerTokenMiddleware

@@ -5,6 +5,7 @@ namespace Vendor\Validator\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Vendor\Validator\Services\ReportLinkSigner;
 
 class ReportBasicAuthMiddleware
 {
@@ -41,6 +42,12 @@ class ReportBasicAuthMiddleware
             return $next($request);
         }
 
+        // El enlace de descarga viene firmado por el reporte ya autenticado,
+        // asi el navegador no vuelve a pedir credenciales para el PDF.
+        if ($this->signedDownload($request)) {
+            return $next($request);
+        }
+
         $user = trim((string) $this->option('user'));
         $password = (string) $this->option('password');
 
@@ -67,6 +74,64 @@ class ReportBasicAuthMiddleware
         }
 
         return $next($request);
+    }
+
+    /**
+     * Whether the request arrives with a valid signed-download signature.
+     *
+     * La firma solo se acepta en la ruta del PDF: el reporte HTML sigue
+     * detras de Basic auth.
+     *
+     * @param Request $request
+     * @return bool
+     */
+    private function signedDownload(Request $request)
+    {
+        if (!$this->isPdfRequest($request)) {
+            return false;
+        }
+
+        return $this->signer()->verify(
+            $request->input('expires'),
+            $request->input('signature')
+        );
+    }
+
+    /**
+     * @param Request $request
+     * @return bool
+     */
+    private function isPdfRequest(Request $request)
+    {
+        $path = method_exists($request, 'path') ? (string) $request->path() : '';
+
+        return (bool) preg_match('#(^|/)validator/report/pdf$#', $path);
+    }
+
+    /**
+     * @return ReportLinkSigner
+     */
+    private function signer()
+    {
+        $secret = trim((string) $this->option('secret'));
+
+        if ($secret === '') {
+            $secret = (string) $this->option('password');
+        }
+
+        return new ReportLinkSigner($secret, $this->reportOption('download_ttl', 300));
+    }
+
+    /**
+     * Read an option from the validator.report array.
+     *
+     * @param string $key
+     * @param mixed $default
+     * @return mixed
+     */
+    private function reportOption($key, $default = null)
+    {
+        return $this->config->get('validator.report.' . $key, $default);
     }
 
     /**

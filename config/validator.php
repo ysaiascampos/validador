@@ -131,8 +131,14 @@ return array(
             'enabled'  => !in_array(strtolower(trim((string) env('VALIDATOR_REPORT_AUTH', '1'))), array('0', 'false', 'no', 'off'), true),
             'user'     => env('VALIDATOR_REPORT_USER', ''),
             'password' => env('VALIDATOR_REPORT_PASSWORD', ''),
+            'secret'   => env('VALIDATOR_REPORT_SECRET', ''),
             'realm'    => env('VALIDATOR_REPORT_REALM', 'Validador RSH'),
         ),
+
+        // Validez del enlace firmado con el que se descarga el PDF (segundos).
+        // El enlace se genera al abrir el reporte autenticado, asi el navegador
+        // no vuelve a pedir credenciales para la descarga.
+        'download_ttl' => (int) env('VALIDATOR_REPORT_DOWNLOAD_TTL', 300),
     ),
 
     /*

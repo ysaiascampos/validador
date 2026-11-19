@@ -71,3 +71,18 @@
 
 - [ ] **Step 1: Documentar variables y requisito de HTTPS**
 - [ ] **Step 2: Commit**
+
+### Task 5: Descarga de PDF sin segundo prompt
+
+**Files:**
+- Create: `src/Services/ReportLinkSigner.php`
+- Modify: `src/Controllers/ReportController.php` (`query()` firma el enlace)
+- Modify: `src/Middleware/ReportBasicAuthMiddleware.php` (acepta firma solo en `/report/pdf`)
+- Modify: `config/validator.php` (`auth.secret`, `download_ttl`)
+- Test: `tests/ReportLinkSignerTest.php`, `tests/ReportBasicAuthMiddlewareTest.php`
+
+- [x] **Step 1: Firmar `expires` con HMAC-SHA256 y validar con `hash_equals`**
+- [x] **Step 2: Aceptar la firma únicamente en la ruta del PDF**
+- [x] **Step 3: Firmar el enlace en el controlador y documentar TTL/secreto**
+- [x] **Step 4: Verificar con lint y arnés de stubs (13 casos)**
+- [x] **Step 5: Commit**

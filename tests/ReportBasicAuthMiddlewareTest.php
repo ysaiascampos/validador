@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Config\Repository as ConfigRepository;
 use Vendor\Validator\Middleware\ReportBasicAuthMiddleware;
+use Vendor\Validator\Services\ReportLinkSigner;
 
 class ReportBasicAuthMiddlewareTest extends TestCase
 {
@@ -82,6 +83,50 @@ class ReportBasicAuthMiddlewareTest extends TestCase
         $this->assertSame('no-store', $response->headers->get('Cache-Control'));
         $this->assertSame('no-referrer', $response->headers->get('Referrer-Policy'));
         $this->assertSame('noindex', $response->headers->get('X-Robots-Tag'));
+    }
+
+    public function testSignedPdfDownloadPassesWithoutCredentials()
+    {
+        $expires = time() + 300;
+        $request = Request::create($this->signedUrl('/validator/report/pdf', $expires));
+
+        $this->assertSame(200, $this->run($this->middleware(), $request)->getStatusCode());
+    }
+
+    public function testSignedLinkDoesNotOpenTheHtmlReport()
+    {
+        $expires = time() + 300;
+        $request = Request::create($this->signedUrl('/validator/report', $expires));
+
+        $this->assertSame(401, $this->run($this->middleware(), $request)->getStatusCode());
+    }
+
+    public function testExpiredSignatureIsRejected()
+    {
+        $expires = time() - 10;
+        $request = Request::create($this->signedUrl('/validator/report/pdf', $expires));
+
+        $this->assertSame(401, $this->run($this->middleware(), $request)->getStatusCode());
+    }
+
+    public function testTamperedSignatureIsRejected()
+    {
+        $expires = time() + 300;
+        $request = Request::create('/validator/report/pdf?expires=' . $expires . '&signature=inventada');
+
+        $this->assertSame(401, $this->run($this->middleware(), $request)->getStatusCode());
+    }
+
+    /**
+     * @param string $path
+     * @param int $expires
+     * @return string
+     */
+    private function signedUrl($path, $expires)
+    {
+        $signer = new ReportLinkSigner('clave-segura', 300);
+
+        return $path . '?expires=' . $expires . '&signature=' . $signer->sign($expires);
     }
 
     /**
